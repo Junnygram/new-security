@@ -1,10 +1,10 @@
-# Kubernetes Security: Defense in Depth (The Practical Guide)
+# How to Secure Kubernetes: A Practical Defense-in-Depth Guide
 
 Security in Kubernetes is often compared to security in the physical world. If you want to protect a valuable asset—say, a bank vault—you wouldn't rely on just one lock on the front door. You'd have a perimeter fence, security guards, ID scanners, cameras, and finally, the vault door itself.
 
 This is **Defense in Depth**.
 
-In the Cloud Native world, we can break this down into the "4Cs of Security":
+In the Cloud Native world, you can break this down into the "4Cs of Security":
 1.  **Cloud**: The underlying infrastructure (AWS, GCP, Azure).
 2.  **Cluster**: The Kubernetes control plane and node components.
 3.  **Container**: The images running inside your pods.
@@ -12,17 +12,37 @@ In the Cloud Native world, we can break this down into the "4Cs of Security":
 
 This guide focuses on the **Cluster** and **Container** layers, using a practical, hands-on scenario that you can deploy and experiment with using the accompanying [new-security](./new-security) repository.
 
+## Prerequisites
+
+To follow this tutorial, you will need:
+-   **Docker Desktop** (or a similar container runtime) installed and running.
+-   **kubectl** installed for interacting with the cluster.
+-   **Git** installed to clone the repository.
+-   A local Kubernetes cluster (like **Kind**, **Minikube**, or Docker Desktop's built-in Kubernetes).
+-   Basic familiarity with YAML manifests and terminal commands.
+
+## Getting Started
+
+First, clone the repository to your local machine:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/new-security.git
+cd new-security
+```
+
+All the files referenced in this guide are located in this directory.
+
 ---
 
 ## The Scenario: The "Secure E-Commerce Store"
 
-To make these concepts concrete, we will secure a hypothetical "E-Commerce Store" consisting of three components:
+To make these concepts concrete, you will secure a hypothetical "E-Commerce Store" consisting of three components:
 
 1.  **`store-api`**: A public-facing API that handles customer requests.
 2.  **`order-processor`**: A background worker that processes orders.
 3.  **`customer-db`**: A database storing sensitive customer data.
 
-By default, an out-of-the-box Kubernetes cluster allows all these components to talk to each other freely, run as `root`, and access the Kubernetes API with broad permissions. **We function as the security team tasked with locking this down.**
+By default, an out-of-the-box Kubernetes cluster allows all these components to talk to each other freely, run as `root`, and access the Kubernetes API with broad permissions. **You function as the security team tasked with locking this down.**
 
 ---
 
@@ -33,7 +53,7 @@ Before compiling your code or building your container, you must ensure the appli
 
 **The Fix:** Sanitize all input at the API boundary.
 
-In our Go `store-api`, we implement a strict sanitization function to strip dangerous characters before processing any order.
+In the Go `store-api`, you implement a strict sanitization function to strip dangerous characters before processing any order.
 
 **File:** `new-security/src/store-api/main.go`
 ```go
@@ -47,7 +67,7 @@ func SanitizeInput(input string) string {
 }
 ```
 
-This ensures that even if a hacker tries to send `<script>alert('hack')</script>` as a product ID, our application neutralizes it immediately.
+This ensures that even if a hacker tries to send `<script>alert('hack')</script>` as a product ID, the application neutralizes it immediately.
 
 ---
 
@@ -58,7 +78,7 @@ Security starts before you even deploy to Kubernetes. If your container image is
 
 **The Fix:** Use Multi-stage builds and Distroless images.
 
-We use **Multi-stage builds** to compile our application in one stage and copy *only* the binary to a minimal runtime image in the second stage. This removes build tools, shells, and unnecessary packages that attackers could use.
+You use **Multi-stage builds** to compile the application in one stage and copy *only* the binary to a minimal runtime image in the second stage. This removes build tools, shells, and unnecessary packages that attackers could use.
 
 **File:** `new-security/src/store-api/Dockerfile`
 ```dockerfile
@@ -77,7 +97,7 @@ USER nonroot:nonroot
 ENTRYPOINT ["/store-api"]
 ```
 
-By using `gcr.io/distroless/static-debian12:nonroot`, we ensure the container has no shell (`/bin/sh` is missing), making it extremely hard for an attacker to execute commands even if they compromise the app.
+By using `gcr.io/distroless/static-debian12:nonroot`, you ensure the container has no shell (`/bin/sh` is missing), making it extremely hard for an attacker to execute commands even if they compromise the app.
 
 ---
 
@@ -89,7 +109,7 @@ A common mistake is letting applications run with the `default` ServiceAccount. 
 **The Fix:** Create dedicated ServiceAccounts and grant permissions using the Principle of Least Privilege.
 
 ### Example: Securing the `store-api`
-We create a specific identity for our API service.
+You create a specific identity for the API service.
 
 **File:** `new-security/rbac/serviceaccount-store-api.yaml`
 ```yaml
@@ -100,7 +120,7 @@ metadata:
   namespace: default
 ```
 
-Next, we define *exactly* what this API needs to do. It needs to read ConfigMaps and Secrets for its configuration, and discover Services. It does **not** need to delete pods or view nodes.
+Next, you define *exactly* what this API needs to do. It needs to read ConfigMaps and Secrets for its configuration, and discover Services. It does **not** need to delete pods or view nodes.
 
 **File:** `new-security/rbac/role-store-api.yaml`
 ```yaml
@@ -117,7 +137,7 @@ rules:
   verbs: ["get", "list"]
 ```
 
-Finally, we bind the Identity (ServiceAccount) to the Permissions (Role) using a **RoleBinding**.
+Finally, you bind the Identity (ServiceAccount) to the Permissions (Role) using a **RoleBinding**.
 
 ---
 
@@ -128,7 +148,7 @@ Container breakout attacks happen when a compromised application has direct acce
 
 **The Fix:** Enforce Pod Security Standards (PSS).
 
-We use Kubernetes' built-in Pod Security Admission controller. We can label a namespace to enforce the **Restricted** standard, which requires pods to:
+You use Kubernetes' built-in Pod Security Admission controller. You can label a namespace to enforce the **Restricted** standard, which requires pods to:
 - Drop all Linux capabilities.
 - Run as a non-root user.
 - Prevent privilege escalation.
@@ -158,7 +178,7 @@ By default, Kubernetes is a flat network. A compromised frontend pod can scan an
 
 **The Fix:** A Zero Trust Network using Network Policies.
 
-We start with a "**Deny All**" policy. This acts as a firewall that blocks *all* traffic to and from every pod in the namespace.
+You start with a "**Deny All**" policy. This acts as a firewall that blocks *all* traffic to and from every pod in the namespace.
 
 **File:** `new-security/network-policies/deny-all.yaml`
 ```yaml
@@ -172,7 +192,7 @@ spec:
   - Egress
 ```
 
-Then, we selectively "punch holes" in the firewall. For example, we only allow traffic to the `store-api` if it comes from our Ingress Controller (or specific sources).
+Then, you selectively "punch holes" in the firewall. For example, you only allow traffic to the `store-api` if it comes from the Ingress Controller (or specific sources).
 
 **File:** `new-security/network-policies/allow-store-api.yaml`
 ```yaml
