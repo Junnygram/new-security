@@ -90,12 +90,21 @@ Now, we lock down the runtime. We will enforce the **Restricted** Pod Security S
     kubectl apply -f pod-security/namespace.yaml
     ```
 
-2.  **Verify Violation:**
-    Try to deploy an insecure pod (like a root container) to confirm it is blocked.
-    ```bash
-    kubectl run root-test --image=nginx --restart=Never -n secure-store
     # You should see an error: "violates PodSecurity"
     ```
+
+3.  **Fix the Deployments:**
+    To allow our pods to run, we must explicitly drop privileges.
+    Update your `base-app/store-api.yaml` (and others) to include:
+    ```yaml
+    securityContext:
+      runAsUser: 1001
+      runAsGroup: 1001
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+    ```
+    *(For this workshop, we assume you edit the YAMLs or apply a patched version)*.
 
 ---
 

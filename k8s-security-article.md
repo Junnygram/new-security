@@ -236,6 +236,24 @@ metadata:
 
 If a developer tries to deploy a pod that runs as root in this namespace, the cluster will **reject the request** immediately.
 
+### How to Pass the Check
+To deploy successfully in a `restricted` namespace, your Deployment manifest must explicitly define a compliant `securityContext`:
+
+```yaml
+spec:
+  containers:
+  - name: store-api
+    image: store-api:v1
+    securityContext:
+      runAsUser: 1001
+      runAsGroup: 1001
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      readOnlyRootFilesystem: true  # Optional but recommended
+```
+This configuration explicitly drops all root privileges, satisfying the rigorous Restricted standard.
+
 ---
 
 ## Layer 4: Network Segmentation (Network Policies)
