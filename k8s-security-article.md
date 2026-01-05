@@ -100,7 +100,6 @@ FROM golang:1.21-alpine AS builder
 WORKDIR /app
 COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -o store-api main.go
-any other thing needed for layer1 and the res the way we made good chnage to layer 0
 
 # Run Stage
 FROM gcr.io/distroless/static-debian12:nonroot
@@ -115,9 +114,20 @@ By using `gcr.io/distroless/static-debian12:nonroot`, you ensure the container h
 
 ### What about other options? (Alpine Linux)
 If Distroless is too restrictive (e.g., you need a shell for debugging), **Alpine Linux** is an excellent alternative. We use `node:18-alpine` for our `store-frontend`.
-Alpine is strictly stripped down, containing only a fraction of the packages found in full images (like Debian or Ubuntu). fewer packages mean fewer potential vulnerabilities (CVEs) and a smaller attack surface.
+Alpine is strictly stripped down, containing only a fraction of the packages found in full images. However, unlike Distroless, it includes a package manager (`apk`), allowing you to install specific tools (like `curl` or `busybox-extras`) if you need to debug a production issue. This offers a balance between security and operation.
 
-### What about other languages?
+### Can I use Distroless for Node.js?
+Yes! Google maintains Distroless images for Node.js, Python, and Java. It provides the highest security but requires careful handling of dependencies.
+
+```dockerfile
+# Example Node.js Distroless
+FROM gcr.io/distroless/nodejs20-debian12
+COPY --from=builder /app /app
+WORKDIR /app
+CMD ["server.js"]
+```
+
+### What about other languages? (Manual Non-Root)
 Not every app can use distroless easily. For interpreted languages like Python or Node.js, you should still ensure you don't run as root.
 
 **File:** `new-security/src/order-processor/Dockerfile`
@@ -130,6 +140,9 @@ ENTRYPOINT ["python", "app.py"]
 ```
 This manually creates a user with fewer privileges, preventing the container process from modifying system files.
 
+### Pro Tip: Pin Your Versions
+**Never use the `:latest` tag in production.** It is unpredictable and can introduce breaking changes or new vulnerabilities at any time. always specify a version (like `node:18`) or, for maximum security, use the SHA256 digest (e.g., `image@sha256:abc...`).
+
 ---
 
 ## Layer 2: Identity & Access (RBAC)
@@ -139,8 +152,19 @@ A common mistake is letting applications run with the `default` ServiceAccount. 
 
 **The Fix:** Create dedicated ServiceAccounts and grant permissions using the Principle of Least Privilege.
 
+### Step 1: Create a Dedicated Namespace
+Deploying everything to the `default` namespace is insecure. It makes it impossible to isolate applications.
+**Always create a dedicated namespace**.
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secure-store
+```
+
 ### Example: Securing the `store-api`
-You create a specific identity for the API service.
+Now, create a specific identity for the API service within that namespace.
 
 **File:** `new-security/rbac/serviceaccount-store-api.yaml`
 ```yaml
@@ -148,7 +172,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: store-api-sa
-  namespace: default
+  namespace: secure-store
 ```
 
 Next, you define *exactly* what this API needs to do. It needs to read ConfigMaps and Secrets for its configuration, and discover Services. It does **not** need to delete pods or view nodes.
@@ -159,7 +183,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: store-api-role
-  namespace: default
+  namespace: secure-store
 rules:
 # Allow reading own ConfigMap and Secret
 - apiGroups: [""]
@@ -201,7 +225,7 @@ You use Kubernetes' built-in Pod Security Admission controller. You can label a 
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: secure-namespace
+  name: secure-store
   labels:
     # Enforce the restricted standard
     pod-security.kubernetes.io/enforce: restricted

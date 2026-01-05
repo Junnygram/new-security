@@ -1,5 +1,7 @@
 kind: NetworkPolicy
-spec:
+metadata:
+  name: allow-store-api
+  namespace: secure-store
   podSelector:
     matchLabels:
       app: store-api

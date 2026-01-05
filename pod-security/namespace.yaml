@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: secure-namespace
+  name: secure-store
   labels:
     # Enforce the restricted standard
     pod-security.kubernetes.io/enforce: restricted

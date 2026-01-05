@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: store-api-role
-  namespace: default
+  namespace: secure-store
 rules:
 # Allow reading own ConfigMap and Secret
 - apiGroups: [""]

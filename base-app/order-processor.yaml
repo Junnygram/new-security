@@ -16,5 +16,20 @@ spec:
     spec:
       containers:
       - name: order-processor
-        image: busybox:latest
-        command: ["/bin/sh", "-c", "while true; do echo Processing orders...; sleep 10; done"]
+        image: order-processor:v1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "user"
+        - name: DB_PASSWORD
+          value: "password"
+        - name: DB_NAME
+          value: "store"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"

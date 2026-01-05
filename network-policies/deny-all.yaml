@@ -1,6 +1,7 @@
 kind: NetworkPolicy
 metadata:
   name: default-deny-all
+  namespace: secure-store
 spec:
   podSelector: {}
   policyTypes:

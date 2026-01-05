@@ -16,7 +16,11 @@ spec:
     spec:
       containers:
       - name: store-frontend
-        image: node:18-alpine # Placeholder
+        image: store-frontend:v1
+        imagePullPolicy: IfNotPresent
+        # Note: Frontend calls API via browser, so this env might not be used directly if logic is client-side,
+        # but if using SSR/rewrites, it might be relevant. 'next.config.js' rewrites map /api to http://store-api:8080
+        # which works due to K8s DNS Service discovery.
         ports:
         - containerPort: 3000
 ---
@@ -25,10 +29,9 @@ kind: Service
 metadata:
   name: store-frontend
 spec:
-  type: LoadBalancer 
+  type: LoadBalancer # Or NodePort
   selector:
     app: store-frontend
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 3000
+  - port: 80
+    targetPort: 3000
