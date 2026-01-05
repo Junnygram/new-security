@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-api
+  labels:
+    app: store-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: store-api
+  template:
+    metadata:
+      labels:
+        app: store-api
+    spec:
+      containers:
+      - name: store-api
+        image: nginx:latest # Placeholder image
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-api
+spec:
+  type: NodePort
+  selector:
+    app: store-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

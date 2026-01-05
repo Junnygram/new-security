@@ -1,0 +1,10 @@
+kind: NetworkPolicy
+spec:
+  podSelector:
+    matchLabels:
+      app: store-api
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
