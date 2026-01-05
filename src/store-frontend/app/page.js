@@ -5,11 +5,18 @@ import React, { useState } from 'react';
 export default function Home() {
   const [status, setStatus] = useState('');
 
+  // Simple frontend sanitization to demonstrate the concept clearly
+  const sanitizeInput = (input) => {
+    return input.replace(/[<>]/g, '');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    
+    // Layer 0: Frontend Sanitization
     const data = {
-      product_id: formData.get('product_id'),
+      product_id: sanitizeInput(formData.get('product_id')),
       quantity: parseInt(formData.get('quantity'), 10),
     };
 

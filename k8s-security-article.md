@@ -38,9 +38,11 @@ All the files referenced in this guide are located in this directory.
 
 To make these concepts concrete, you will secure a hypothetical "E-Commerce Store" consisting of three components:
 
-1.  **`store-api`**: A public-facing API that handles customer requests.
-2.  **`order-processor`**: A background worker that processes orders.
-3.  **`customer-db`**: A database storing sensitive customer data.
+1.  **`store-frontend`**: A Next.js web UI for customers.
+2.  **`store-api`**: A Go API that handles requests and publishes events.
+3.  **`order-processor`**: A Python worker that processes orders from a queue.
+4.  **`postgres`**: A database storing sensitive customer and order data.
+5.  **`redis`**: A message queue for decoupling services.
 
 By default, an out-of-the-box Kubernetes cluster allows all these components to talk to each other freely, run as `root`, and access the Kubernetes API with broad permissions. **You function as the security team tasked with locking this down.**
 
@@ -51,9 +53,20 @@ By default, an out-of-the-box Kubernetes cluster allows all these components to 
 
 Before compiling your code or building your container, you must ensure the application logic itself is secure. A common vulnerability is **Injection Attacks** (SQL Injection, XSS), where malicious input causes the application to execute unintended commands.
 
-**The Fix:** Sanitize all input at the API boundary.
+**The Fix:** Sanitize all input at the API boundary, validating on both **Frontend** and **Backend**.
 
-In the Go `store-api`, you implement a strict sanitization function to strip dangerous characters before processing any order.
+### Frontend Sanitization
+In real-world applications, you would typically use libraries like **Zod**, **Yup**, or **React Hook Form** to handle complex validation schema easily. However, for this workshop, you implement a basic sanitization function in the `store-frontend` (React) to demonstrate the core concept of stripping dangerous characters before sending data to the API.
+
+**File:** `new-security/src/store-frontend/app/page.js`
+```javascript
+const sanitizeInput = (input) => {
+  return input.replace(/[<>]/g, '');
+};
+```
+
+### Backend Sanitization
+In the Go `store-api`, you implement a strict sanitization function to strip dangerous characters before processing any order. This is critical because attackers can bypass the frontend entirely.
 
 **File:** `new-security/src/store-api/main.go`
 ```go
@@ -87,6 +100,7 @@ FROM golang:1.21-alpine AS builder
 WORKDIR /app
 COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -o store-api main.go
+any other thing needed for layer1 and the res the way we made good chnage to layer 0
 
 # Run Stage
 FROM gcr.io/distroless/static-debian12:nonroot
@@ -98,6 +112,23 @@ ENTRYPOINT ["/store-api"]
 ```
 
 By using `gcr.io/distroless/static-debian12:nonroot`, you ensure the container has no shell (`/bin/sh` is missing), making it extremely hard for an attacker to execute commands even if they compromise the app.
+
+### What about other options? (Alpine Linux)
+If Distroless is too restrictive (e.g., you need a shell for debugging), **Alpine Linux** is an excellent alternative. We use `node:18-alpine` for our `store-frontend`.
+Alpine is strictly stripped down, containing only a fraction of the packages found in full images (like Debian or Ubuntu). fewer packages mean fewer potential vulnerabilities (CVEs) and a smaller attack surface.
+
+### What about other languages?
+Not every app can use distroless easily. For interpreted languages like Python or Node.js, you should still ensure you don't run as root.
+
+**File:** `new-security/src/order-processor/Dockerfile`
+```dockerfile
+# Create a non-root user for security
+RUN useradd -m nonroot && chown -R nonroot /app
+USER nonroot
+
+ENTRYPOINT ["python", "app.py"]
+```
+This manually creates a user with fewer privileges, preventing the container process from modifying system files.
 
 ---
 
@@ -138,6 +169,18 @@ rules:
 ```
 
 Finally, you bind the Identity (ServiceAccount) to the Permissions (Role) using a **RoleBinding**.
+
+### Pro Tip: Disable Token Mounting
+If your application (like our `order-processor`) does **not** need to talk to the Kubernetes API, you should prevent the token from being mounted inside the pod at all.
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: order-processor-sa
+automountServiceAccountToken: false
+```
+This prevents an attacker from stealing a credential they shouldn't have access to in the first place.
 
 ---
 
