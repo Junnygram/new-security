@@ -2,11 +2,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: store-api-rolebinding
-  namespace: default
+
 subjects:
 - kind: ServiceAccount
   name: store-api-sa
-  namespace: default
+  namespace: secure-store
 roleRef:
   kind: Role
   name: store-api-role

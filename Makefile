@@ -57,6 +57,7 @@ verify-root-blocked: ## Layer 3 Verify: Prove Root is now Blocked
 .PHONY: fix-deployments
 fix-deployments: ## Layer 3 App Fix: Update Deployments to be Compliant
 	@echo "UPDATING: Apps to run as non-root (SecurityContext)..."
+	kubectl apply -f rbac/ -n $(NS)
 	kubectl apply -f secure-app/ -n $(NS)
 	kubectl rollout status deploy/store-api -n $(NS)
 

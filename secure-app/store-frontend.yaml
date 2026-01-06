@@ -19,6 +19,9 @@ spec:
         image: store-frontend:v1
         imagePullPolicy: IfNotPresent
         securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
           runAsUser: 1001
           runAsGroup: 1001
           allowPrivilegeEscalation: false

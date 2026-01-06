@@ -18,6 +18,9 @@ spec:
       - name: redis
         image: redis:7
         securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
           runAsUser: 999
           runAsGroup: 999
           allowPrivilegeEscalation: false

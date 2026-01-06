@@ -18,6 +18,9 @@ spec:
       - name: postgres
         image: postgres:15
         securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
           runAsUser: 999
           runAsGroup: 999
           allowPrivilegeEscalation: false
